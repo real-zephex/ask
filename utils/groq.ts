@@ -1,27 +1,53 @@
 import Groq from "groq-sdk";
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY!,
-});
+export interface GroqConfig {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
 
-export async function getGroqChatStream(message: string) {
+const DEFAULT_MODEL = "openai/gpt-oss-20b";
+const DEFAULT_TEMPERATURE = 0.5;
+const DEFAULT_MAX_TOKENS = 8192;
+
+export function validateApiKey(): void {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey || apiKey.trim() === "") {
+    console.error(
+      "Error: GROQ_API_KEY environment variable is not set.\n\n" +
+      "To fix this:\n" +
+      "  1. Get a free API key at https://console.groq.com\n" +
+      "  2. Add it to your .env.local file:\n" +
+      "       echo 'GROQ_API_KEY=your_key_here' > .env.local\n" +
+      "  Or export it directly:\n" +
+      "       export GROQ_API_KEY=your_key_here"
+    );
+    process.exit(1);
+  }
+}
+
+export async function getGroqChatStream(message: string, config: GroqConfig = {}) {
+  const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY!,
+  });
+
   return groq.chat.completions.create({
     messages: [
       {
         role: "system",
-        content: "Do not use markdown to repsond. Use plain text for your answers. Keep your answers concise. No need to overexplain."
+        content:
+          "Do not use markdown to respond. Use plain text for your answers. Keep your answers concise. No need to overexplain.",
       },
       {
         role: "user",
         content: message,
       },
     ],
-    model: "openai/gpt-oss-20b",
-    max_completion_tokens: 8192,
+    model: config.model ?? DEFAULT_MODEL,
+    max_completion_tokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
     top_p: 1,
     stop: null,
     stream: true,
-    temperature: 0.5,
+    temperature: config.temperature ?? DEFAULT_TEMPERATURE,
   });
 }
- 

@@ -1,5 +1,6 @@
 {
   "name": "ask_in_cli",
+  "version": "1.0.0",
   "module": "index.ts",
   "type": "module",
   "private": true,
