@@ -209,6 +209,7 @@ async function main(): Promise<void> {
 
   // Clear streamed raw output and re-render with markdown
   process.stdout.write(`\x1b[${lineCount + 1}A\x1b[0J`);
+  console.log("\n");
   console.log(renderMarkdown(response));
 }
 
