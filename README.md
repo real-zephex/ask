@@ -5,6 +5,7 @@ A command-line interface for interactive AI conversations powered by the [Groq A
 ## Features
 
 - ⚡ Real-time streaming AI responses
+- 💬 Chat history persistence (SQLite)
 - 🎨 Markdown-to-terminal rendering with colors
 - 📥 stdin piping support for context injection
 - 🔧 Easy setup with single command
@@ -50,6 +51,25 @@ bun run index.ts "What is TypeScript?"
 ask "Your question here"
 ```
 
+### With Chat History
+The CLI automatically saves your conversations in a SQLite database in your home directory (`~/.ask_history.sqlite`).
+
+```bash
+ask "What is my name?" # If you told it before, it remembers
+```
+
+### Options
+| Option | Description |
+| --- | --- |
+| `-h, --help` | Show help message |
+| `-v, --version` | Show version number |
+| `--model <model>` | Model to use (default: openai/gpt-oss-20b) |
+| `--temperature <num>` | Sampling temperature 0-2 (default: 0.5) |
+| `--max-tokens <num>` | Max tokens in response (default: 8192) |
+| `--history-limit <num>` | Number of previous messages to include (default: 10) |
+| `--no-history` | Do not use or save chat history |
+| `--clear` | Clear chat history |
+
 ### With piped input
 ```bash
 echo "Relevant context" | ask "Tell me more"
@@ -58,7 +78,7 @@ echo "Relevant context" | ask "Tell me more"
 ### After installation
 ```bash
 # List available commands
-ctrl+p
+ask --help
 
 # Run with arguments
 ask "What is Bun?"
