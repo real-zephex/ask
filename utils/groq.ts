@@ -1,4 +1,5 @@
 import Groq from "groq-sdk";
+import type { Message } from "../db";
 
 export interface GroqConfig {
   model?: string;
@@ -26,23 +27,29 @@ export function validateApiKey(): void {
   }
 }
 
-export async function getGroqChatStream(message: string, config: GroqConfig = {}) {
+export async function getGroqChatStream(message: string, config: GroqConfig = {}, history: Message[] = []) {
   const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY!,
   });
 
+  const messages: Groq.Chat.ChatCompletionMessageParam[] = [
+    {
+      role: "system",
+      content:
+        "Do not use markdown to respond. Use plain text for your answers. Keep your answers concise. No need to overexplain.",
+    },
+    ...history.map(msg => ({
+      role: msg.response_from === "assistant" ? "assistant" as const : "user" as const,
+      content: msg.content,
+    })),
+    {
+      role: "user",
+      content: message,
+    },
+  ];
+
   return groq.chat.completions.create({
-    messages: [
-      {
-        role: "system",
-        content:
-          "Do not use markdown to respond. Use plain text for your answers. Keep your answers concise. No need to overexplain.",
-      },
-      {
-        role: "user",
-        content: message,
-      },
-    ],
+    messages,
     model: config.model ?? DEFAULT_MODEL,
     max_completion_tokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
     top_p: 1,

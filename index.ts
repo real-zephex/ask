@@ -2,8 +2,9 @@
 
 import { getGroqChatStream, validateApiKey, type GroqConfig } from "./utils/groq";
 import chalk from "chalk";
+import { getMessages, putMessage, clearMessages, type Message } from "./db";
 
-const VERSION = "1.0.0";
+const VERSION = "1.0.1";
 
 // --- CLI Help ---
 
@@ -20,6 +21,9 @@ Options:
       --model <model>         Model to use (default: openai/gpt-oss-20b)
       --temperature <number>  Sampling temperature 0-2 (default: 0.5)
       --max-tokens <number>   Max tokens in response (default: 8192)
+      --history-limit <num>   Number of previous messages to include (default: 10)
+      --no-history            Do not use or save chat history
+      --clear                 Clear chat history
 
 Examples:
   ask "What is TypeScript?"
@@ -35,6 +39,9 @@ Examples:
 interface CliArgs {
   help: boolean;
   version: boolean;
+  clear: boolean;
+  noHistory: boolean;
+  historyLimit: number;
   prompt: string | null;
   config: GroqConfig;
 }
@@ -43,6 +50,9 @@ function parseArgs(argv: string[]): CliArgs {
   const result: CliArgs = {
     help: false,
     version: false,
+    clear: false,
+    noHistory: false,
+    historyLimit: 10,
     prompt: null,
     config: {},
   };
@@ -56,6 +66,18 @@ function parseArgs(argv: string[]): CliArgs {
       result.help = true;
     } else if (arg === "-v" || arg === "--version") {
       result.version = true;
+    } else if (arg === "--clear") {
+      result.clear = true;
+    } else if (arg === "--no-history") {
+      result.noHistory = true;
+    } else if (arg === "--history-limit") {
+      const raw = argv[++i];
+      const num = parseInt(raw ?? "", 10);
+      if (isNaN(num) || num < 0) {
+        console.error(`Error: --history-limit must be a non-negative integer.`);
+        process.exit(1);
+      }
+      result.historyLimit = num;
     } else if (arg === "--model") {
       const value = argv[++i];
       if (!value || value.startsWith("-")) {
@@ -134,6 +156,11 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  if (args.clear) {
+    clearMessages();
+    process.exit(0);
+  }
+
   validateApiKey();
 
   const stdin = await getStdin();
@@ -155,11 +182,17 @@ async function main(): Promise<void> {
       : args.prompt
     : stdin;
 
+  if (!args.noHistory) {
+    putMessage({ data: { response_from: "user", content: message } });
+  }
+
+  const history = args.noHistory ? [] : (getMessages(args.historyLimit) ?? []);
+
   let response = "";
   let lineCount = 0;
 
   try {
-    const stream = await getGroqChatStream(message, args.config);
+    const stream = await getGroqChatStream(message, args.config, history as Message[]);
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || "";
@@ -167,6 +200,10 @@ async function main(): Promise<void> {
       process.stdout.write(content);
       response += content;
       lineCount += (content.match(/\n/g) || []).length;
+    }
+
+    if (!args.noHistory && response) {
+      putMessage({ data: { response_from: "assistant", content: response } });
     }
   } catch (err: unknown) {
     // Clear any partial streamed output before showing the error
